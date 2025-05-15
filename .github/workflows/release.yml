@@ -32,6 +32,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: npm install
       - run: npm run build
+      - run: |
+          if [ ! -d "dist" ] || [ ! -f "dist/awsSecretsManagerCache.d.ts" ]; then
+            echo "Error: dist directory or dist/awsSecretsManagerCache.d.ts missing"
+            exit 1
+          fi      
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

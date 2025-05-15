@@ -32,3 +32,8 @@
 
 ### Added
 - Exporting types, Config.
+
+### [1.0.7] - 2025-05-16
+
+### Added
+- Publish dist
