@@ -22,3 +22,8 @@
 
 ### Added
 - Updating log levels.
+
+### [1.0.5] - 2025-05-16
+
+### Added
+- Updating readme.

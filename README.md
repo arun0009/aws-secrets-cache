@@ -90,8 +90,8 @@ secretsManager.on('error', (data) =>
 * `getSecret(userId: string)`: SecretValue | undefined: Retrieves a secret by ID.
 * `getAllSecrets(): Record<string, SecretValue>`: Retrieves all secrets.
 * `stopScheduledRefresh(): void`: Stops the scheduled refresh.
-* `addSecretMapping(userId: string, secretId: string)`: Promise<void>: Adds a new secret mapping.
-* `removeSecretMapping(userId: string): void`: Removes a secret mapping.
+* `addSecretMapping(userId: string, secretId: string)`: Promise<void>: Adds a new secret mapping to the local cache. Note: This does not create or modify secrets in AWS Secrets Manager.
+* `removeSecretMapping(userId: string): void`: Removes a secret mapping from the local cache. Note: This does not delete secrets from AWS Secrets Manager.
 * `clearCache()`: void: Clears the cache and stops refresh.
 * `getCacheStats()`: { size: number }: Returns cache size.
 
