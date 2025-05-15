@@ -1,6 +1,6 @@
 {
   "name": "aws-secrets-cache",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A TypeScript library for caching and refreshing AWS Secrets Manager secrets with user-friendly IDs",
   "types": "dist/awsSecretsManagerCache.d.ts",
   "private": false,
@@ -22,12 +22,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/arun0009/aws-utils-secrets-cache.git"
+    "url": "git+https://github.com/arun0009/aws-secrets-cache.git"
   },
   "bugs": {
-    "url": "https://github.com/arun0009/aws-utils-secrets-cache/issues"
+    "url": "https://github.com/arun0009/aws-secrets-cache/issues"
   },
-  "homepage": "https://github.com/arun0009/aws-utils-secrets-cache#readme",
+  "homepage": "https://github.com/arun0009/aws-secrets-cache#readme",
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.810.0",
     "zod": "^3.24.4"
