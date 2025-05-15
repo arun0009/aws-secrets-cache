@@ -4,7 +4,7 @@ A TypeScript library for caching and refreshing AWS Secrets Manager secrets with
 
 ## Installation
 
-npm install aws-secrets-cache
+`npm install aws-secrets-cache`
 
 ## Usage
 

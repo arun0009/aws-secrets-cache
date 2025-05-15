@@ -7,9 +7,9 @@ const configSchema = z.object({
   secretMappings: z.record(z.string(), z.string()).refine((obj) => Object.keys(obj).length > 0, {
     message: 'At least one secret mapping is required',
   }),
-  refreshInterval: z.number().positive().default(300000),
+  refreshInterval: z.number().positive().default(300000), // 5 minutes
   maxRetries: z.number().int().min(0).default(3),
-  retryDelay: z.number().positive().default(1000),
+  retryDelay: z.number().positive().default(1000), // 1 second
   disableEvents: z.boolean().optional().default(false),
 }).strict();
 
