@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.vscode/
+*.log
+*.env
+*.local
+*.DS_Store
+*.swp
+*.swo
+.idea
+*.iml
