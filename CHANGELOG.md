@@ -47,3 +47,8 @@
 
 ### Added
 - updating lib description
+
+### [1.1.0] - 2025-05-16
+
+### Added
+- remove realease
