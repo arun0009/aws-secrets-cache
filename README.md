@@ -1,6 +1,6 @@
 # aws-secrets-cache
 
-A TypeScript library for caching and refreshing AWS Secrets Manager secrets with user-friendly IDs.
+A JavaScript/TypeScript library for caching and refreshing AWS Secrets Manager secrets with user-friendly IDs, featuring scheduled refreshes and optional event emissions.
 
 ## Installation
 

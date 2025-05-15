@@ -42,3 +42,8 @@
 
 ### Added
 - Using rollup for bundling
+
+### [1.0.9] - 2025-05-16
+
+### Added
+- updating lib description
