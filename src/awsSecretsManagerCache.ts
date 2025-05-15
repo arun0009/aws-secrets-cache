@@ -1,17 +1,33 @@
-import { SecretsManagerClient, GetSecretValueCommand, GetSecretValueCommandOutput } from '@aws-sdk/client-secrets-manager';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+  GetSecretValueCommandOutput,
+} from '@aws-sdk/client-secrets-manager';
 import { z } from 'zod';
 import { EventEmitter } from 'events';
 
-const configSchema = z.object({
-  region: z.string().optional().default('us-east-1'),
-  secretMappings: z.record(z.string(), z.string()).refine((obj) => Object.keys(obj).length > 0, {
-    message: 'At least one secret mapping is required',
-  }),
-  refreshInterval: z.number().positive().default(300000), // 5 minutes
-  maxRetries: z.number().int().min(0).default(3),
-  retryDelay: z.number().positive().default(1000), // 1 second
-  disableEvents: z.boolean().optional().default(false),
-}).strict();
+interface Logger {
+  debug?: (...args: any[]) => void;
+  info?: (...args: any[]) => void;
+  warn?: (...args: any[]) => void;
+  error?: (...args: any[]) => void;
+}
+
+const configSchema = z
+  .object({
+    region: z.string().optional().default('us-east-1'),
+    secretMappings: z
+      .record(z.string(), z.string())
+      .refine((obj) => Object.keys(obj).length > 0, {
+        message: 'At least one secret mapping is required',
+      }),
+    refreshInterval: z.number().positive().default(300000), // 5 minutes
+    maxRetries: z.number().int().min(0).default(3),
+    retryDelay: z.number().positive().default(1000), // 1 second
+    disableEvents: z.boolean().optional().default(false),
+    logger: z.union([z.boolean(), z.any()]).optional().default(true),
+  })
+  .strict();
 
 type SecretValue = string | Buffer | Record<string, unknown>;
 
@@ -20,7 +36,9 @@ interface CacheEntry {
   fetchedAt: number;
 }
 
-type AWSSecretsConfig = z.infer<typeof configSchema>;
+type AWSSecretsConfig = z.infer<typeof configSchema> & {
+  logger?: Logger | boolean;
+};
 
 class AWSSecretsManagerCache extends EventEmitter {
   private client: SecretsManagerClient;
@@ -28,6 +46,7 @@ class AWSSecretsManagerCache extends EventEmitter {
   private refreshIntervalId?: NodeJS.Timeout;
   private isRunning: boolean;
   private config: AWSSecretsConfig;
+  private logger: Logger;
 
   constructor(config: AWSSecretsConfig) {
     super();
@@ -35,6 +54,16 @@ class AWSSecretsManagerCache extends EventEmitter {
     this.client = new SecretsManagerClient({ region: this.config.region });
     this.cache = new Map();
     this.isRunning = false;
+
+    const defaultLogger: Logger = {
+      debug: () => {},
+      info: console.log,
+      warn: console.warn,
+      error: console.error,
+    };
+
+    this.logger =
+      this.config.logger === false ? {} : { ...defaultLogger, ...(this.config.logger || {}) };
   }
 
   public async initialize(): Promise<void> {
@@ -43,15 +72,19 @@ class AWSSecretsManagerCache extends EventEmitter {
   }
 
   private async fetchAllSecrets(): Promise<void> {
-    console.log('Fetching all secrets at', new Date().toISOString());
+    this.logger.info?.('Fetching all secrets at', new Date().toISOString());
     const promises = Object.entries(this.config.secretMappings).map(([userId, secretId]) =>
       this.fetchSecretWithRetry(userId, secretId)
     );
     await Promise.all(promises);
-    console.log('Finished fetching all secrets at', new Date().toISOString());
+    this.logger.info?.('Finished fetching all secrets at', new Date().toISOString());
   }
 
-  private async fetchSecretWithRetry(userId: string, secretId: string, attempt = 1): Promise<void> {
+  private async fetchSecretWithRetry(
+    userId: string,
+    secretId: string,
+    attempt = 1
+  ): Promise<void> {
     try {
       const command = new GetSecretValueCommand({ SecretId: secretId });
       const response: GetSecretValueCommandOutput = await this.client.send(command);
@@ -71,19 +104,25 @@ class AWSSecretsManagerCache extends EventEmitter {
         if (!this.config.disableEvents) {
           this.emit('update', { userId, value: secretValue, timestamp: newEntry.fetchedAt });
         }
-        console.log(`Updated cache for ${userId} at ${new Date().toISOString()}`);
+        this.logger.info?.(`Updated cache for ${userId} at ${new Date().toISOString()}`);
       }
     } catch (error) {
       if (attempt <= this.config.maxRetries) {
         const delay = this.config.retryDelay * Math.pow(2, attempt - 1);
-        console.warn(`Retry ${attempt}/${this.config.maxRetries} for ${userId} after ${delay}ms:`, error);
+        this.logger.warn?.(
+          `Retry ${attempt}/${this.config.maxRetries} for ${userId} after ${delay}ms:`,
+          error
+        );
         await new Promise((resolve) => setTimeout(resolve, delay));
         return this.fetchSecretWithRetry(userId, secretId, attempt + 1);
       }
       if (!this.config.disableEvents) {
         this.emit('error', { userId, error, timestamp: Date.now() });
       }
-      console.error(`Failed to fetch ${userId} after ${this.config.maxRetries} retries:`, error);
+      this.logger.error?.(
+        `Failed to fetch ${userId} after ${this.config.maxRetries} retries:`,
+        error
+      );
     }
   }
 
@@ -91,18 +130,20 @@ class AWSSecretsManagerCache extends EventEmitter {
     if (!this.isRunning) {
       this.isRunning = true;
       this.refreshIntervalId = setInterval(() => {
-        console.log('Scheduled refresh triggered at', new Date().toISOString());
+        this.logger.info?.('Scheduled refresh triggered at', new Date().toISOString());
         this.fetchAllSecrets().catch((error) => {
           if (!this.config.disableEvents) {
             this.emit('error', { error, timestamp: Date.now() });
           }
-          console.error(`Scheduled refresh failed at ${new Date().toISOString()}:`, error);
+          this.logger.error?.(`Scheduled refresh failed at ${new Date().toISOString()}:`, error);
         });
       }, this.config.refreshInterval);
       if (!this.config.disableEvents) {
         this.emit('start', { timestamp: Date.now() });
       }
-      console.log(`Scheduled refresh started at ${new Date().toISOString()} with interval ${this.config.refreshInterval}ms`);
+      this.logger.info?.(
+        `Scheduled refresh started at ${new Date().toISOString()} with interval ${this.config.refreshInterval}ms`
+      );
     }
   }
 
@@ -113,7 +154,7 @@ class AWSSecretsManagerCache extends EventEmitter {
       if (!this.config.disableEvents) {
         this.emit('stop', { timestamp: Date.now() });
       }
-      console.log(`Scheduled refresh stopped at ${new Date().toISOString()}`);
+      this.logger.info?.(`Scheduled refresh stopped at ${new Date().toISOString()}`);
     }
   }
 

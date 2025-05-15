@@ -52,6 +52,8 @@ secretsManager.on('error', (data) => console.error(`Error for ${data.userId}:`, 
 * `refreshInterval`: Refresh interval in milliseconds (default: 300000).
 * `maxRetries`: Number of retries for failed fetches (default: 3).
 * `retryDelay`: Initial retry delay in milliseconds (default: 1000).
+* `logger`: Optional logger (default: console). Provide an object with info, warn, and error methods (e.g. pino, winston), or pass false to disable all logs.
+* `disableEvents`: Set to true to disable event emissions like update, error, start, stop, etc. (default: false).
 
 ## Events
 
