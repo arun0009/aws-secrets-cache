@@ -1,6 +1,6 @@
 {
   "name": "aws-secrets-cache",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A TypeScript library for caching and refreshing AWS Secrets Manager secrets with user-friendly IDs",
   "types": "dist/awsSecretsManagerCache.d.ts",
   "private": false,

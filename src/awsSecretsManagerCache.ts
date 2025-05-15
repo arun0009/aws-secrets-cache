@@ -73,12 +73,12 @@ class AWSSecretsManagerCache extends EventEmitter {
   }
 
   private async fetchAllSecrets(): Promise<void> {
-    this.logger.info?.('Fetching all secrets at', new Date().toISOString());
+    this.logger.debug?.('Fetching all secrets at', new Date().toISOString());
     const promises = Object.entries(this.config.secretMappings).map(([userId, secretId]) =>
       this.fetchSecretWithRetry(userId, secretId)
     );
     await Promise.all(promises);
-    this.logger.info?.('Finished fetching all secrets at', new Date().toISOString());
+    this.logger.debug?.('Finished fetching all secrets at', new Date().toISOString());
   }
 
   private async fetchSecretWithRetry(
@@ -131,7 +131,7 @@ class AWSSecretsManagerCache extends EventEmitter {
     if (!this.isRunning) {
       this.isRunning = true;
       this.refreshIntervalId = setInterval(() => {
-        this.logger.info?.('Scheduled refresh triggered at', new Date().toISOString());
+        this.logger.debug?.('Scheduled refresh triggered at', new Date().toISOString());
         this.fetchAllSecrets().catch((error) => {
           if (!this.config.disableEvents) {
             this.emit('error', { error, timestamp: Date.now() });
