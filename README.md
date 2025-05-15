@@ -9,9 +9,9 @@ A TypeScript library for caching and refreshing AWS Secrets Manager secrets with
 ## Usage
 
 ```typescript
-import AWSSecretsManagerCache from 'aws-secrets-cache';
+import AWSSecretsManagerCache, { AWSSecretsConfig } from 'aws-secrets-cache';
 
-const config = {
+const config: AWSSecretsConfig = {
   secretMappings: {
     dbPassword: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-xyz',
     apiKey: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:api-key-abc',
@@ -37,7 +37,7 @@ secretsManager.on('error', (data) => console.error(`Error for ${data.userId}:`, 
 
 ```typescript
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
-import AWSSecretsManagerCache from 'aws-secrets-cache';
+import AWSSecretsManagerCache, { AWSSecretsConfig, Logger } from 'aws-secrets-cache';
 import winston from 'winston';
 
 // Optional: Create a Winston logger instance
@@ -50,12 +50,12 @@ const customLogger = winston.createLogger({
     })
   ),
   transports: [new winston.transports.Console()],
-});
+}) satisfies Logger;
 
 // Optional: custom AWS SecretsManagerClient with specific region
 const customClient = new SecretsManagerClient({ region: 'us-west-2' });
 
-const config = {
+const config: AWSSecretsConfig = {
   secretMappings: {
     dbPassword: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-xyz',
     apiKey: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:api-key-abc',

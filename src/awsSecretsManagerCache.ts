@@ -21,9 +21,9 @@ const configSchema = z
       .refine((obj) => Object.keys(obj).length > 0, {
         message: 'At least one secret mapping is required',
       }),
-    refreshInterval: z.number().positive().default(300000), // 5 minutes
+    refreshInterval: z.number().positive().default(300000),
     maxRetries: z.number().int().min(0).default(3),
-    retryDelay: z.number().positive().default(1000), // 1 second
+    retryDelay: z.number().positive().default(1000),
     disableEvents: z.boolean().optional().default(false),
     logger: z.union([z.boolean(), z.any()]).optional().default(true),
   })
@@ -38,8 +38,30 @@ interface CacheEntry {
 
 type AWSSecretsConfig = z.infer<typeof configSchema> & {
   logger?: Logger | boolean;
-  client?: SecretsManagerClient; 
+  client?: SecretsManagerClient;
 };
+
+// Event types
+export interface UpdateEvent {
+  userId: string;
+  value: SecretValue;
+  timestamp: number;
+}
+export interface ErrorEvent {
+  userId?: string;
+  error: unknown;
+  timestamp: number;
+}
+export interface StartStopEvent {
+  timestamp: number;
+}
+export interface RemoveEvent {
+  userId: string;
+  timestamp: number;
+}
+export interface ClearEvent {
+  timestamp: number;
+}
 
 class AWSSecretsManagerCache extends EventEmitter {
   private client: SecretsManagerClient;
@@ -89,21 +111,21 @@ class AWSSecretsManagerCache extends EventEmitter {
     try {
       const command = new GetSecretValueCommand({ SecretId: secretId });
       const response: GetSecretValueCommandOutput = await this.client.send(command);
-      if (!response) {
-        throw new Error(`No response received for secret ${secretId}`);
-      }
+      if (!response) throw new Error(`No response received for secret ${secretId}`);
+
       const secretValue: SecretValue = response.SecretString
         ? JSON.parse(response.SecretString)
         : response.SecretBinary
         ? Buffer.from(response.SecretBinary).toString('utf-8')
         : '';
+
       const currentEntry = this.cache.get(userId);
       const newEntry: CacheEntry = { value: secretValue, fetchedAt: Date.now() };
 
       if (!currentEntry || JSON.stringify(currentEntry.value) !== JSON.stringify(secretValue)) {
         this.cache.set(userId, newEntry);
         if (!this.config.disableEvents) {
-          this.emit('update', { userId, value: secretValue, timestamp: newEntry.fetchedAt });
+          this.emit('update', { userId, value: secretValue, timestamp: newEntry.fetchedAt } satisfies UpdateEvent);
         }
         this.logger.info?.(`Updated cache for ${userId} at ${new Date().toISOString()}`);
       }
@@ -118,7 +140,7 @@ class AWSSecretsManagerCache extends EventEmitter {
         return this.fetchSecretWithRetry(userId, secretId, attempt + 1);
       }
       if (!this.config.disableEvents) {
-        this.emit('error', { userId, error, timestamp: Date.now() });
+        this.emit('error', { userId, error, timestamp: Date.now() } satisfies ErrorEvent);
       }
       this.logger.error?.(
         `Failed to fetch ${userId} after ${this.config.maxRetries} retries:`,
@@ -134,13 +156,13 @@ class AWSSecretsManagerCache extends EventEmitter {
         this.logger.debug?.('Scheduled refresh triggered at', new Date().toISOString());
         this.fetchAllSecrets().catch((error) => {
           if (!this.config.disableEvents) {
-            this.emit('error', { error, timestamp: Date.now() });
+            this.emit('error', { error, timestamp: Date.now() } satisfies ErrorEvent);
           }
           this.logger.error?.(`Scheduled refresh failed at ${new Date().toISOString()}:`, error);
         });
       }, this.config.refreshInterval);
       if (!this.config.disableEvents) {
-        this.emit('start', { timestamp: Date.now() });
+        this.emit('start', { timestamp: Date.now() } satisfies StartStopEvent);
       }
       this.logger.info?.(
         `Scheduled refresh started at ${new Date().toISOString()} with interval ${this.config.refreshInterval}ms`
@@ -153,7 +175,7 @@ class AWSSecretsManagerCache extends EventEmitter {
       clearInterval(this.refreshIntervalId);
       this.isRunning = false;
       if (!this.config.disableEvents) {
-        this.emit('stop', { timestamp: Date.now() });
+        this.emit('stop', { timestamp: Date.now() } satisfies StartStopEvent);
       }
       this.logger.info?.(`Scheduled refresh stopped at ${new Date().toISOString()}`);
     }
@@ -181,7 +203,7 @@ class AWSSecretsManagerCache extends EventEmitter {
     delete this.config.secretMappings[userId];
     this.cache.delete(userId);
     if (!this.config.disableEvents) {
-      this.emit('remove', { userId, timestamp: Date.now() });
+      this.emit('remove', { userId, timestamp: Date.now() } satisfies RemoveEvent);
     }
   }
 
@@ -191,8 +213,12 @@ class AWSSecretsManagerCache extends EventEmitter {
       this.stopScheduledRefresh();
     }
     if (!this.config.disableEvents) {
-      this.emit('clear', { timestamp: Date.now() });
+      this.emit('clear', { timestamp: Date.now() } satisfies ClearEvent);
     }
+  }
+
+  public dispose(): void {
+    this.clearCache();
   }
 
   public getCacheStats(): { size: number } {
@@ -201,3 +227,9 @@ class AWSSecretsManagerCache extends EventEmitter {
 }
 
 export default AWSSecretsManagerCache;
+export type {
+  AWSSecretsConfig,
+  Logger,
+  SecretValue,
+  CacheEntry
+};

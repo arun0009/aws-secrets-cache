@@ -27,3 +27,8 @@
 
 ### Added
 - Updating readme.
+
+### [1.0.6] - 2025-05-16
+
+### Added
+- Exporting types, Config.
