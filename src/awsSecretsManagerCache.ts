@@ -38,6 +38,7 @@ interface CacheEntry {
 
 type AWSSecretsConfig = z.infer<typeof configSchema> & {
   logger?: Logger | boolean;
+  client?: SecretsManagerClient; 
 };
 
 class AWSSecretsManagerCache extends EventEmitter {
@@ -51,7 +52,7 @@ class AWSSecretsManagerCache extends EventEmitter {
   constructor(config: AWSSecretsConfig) {
     super();
     this.config = configSchema.parse(config);
-    this.client = new SecretsManagerClient({ region: this.config.region });
+    this.client = config.client ?? new SecretsManagerClient({ region: this.config.region });
     this.cache = new Map();
     this.isRunning = false;
 
