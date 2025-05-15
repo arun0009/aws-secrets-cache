@@ -8,16 +8,26 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
       - run: npm install
+      - run: npm run build
+        env:
+          NODE_ENV: production
       - run: npm test
 
   release:
@@ -30,13 +40,24 @@ jobs:
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
       - run: npm install
       - run: npm run build
+        env:
+          NODE_ENV: production
       - run: |
-          if [ ! -d "dist" ] || [ ! -f "dist/awsSecretsManagerCache.d.ts" ]; then
-            echo "Error: dist directory or dist/awsSecretsManagerCache.d.ts missing"
+          if [ ! -d "dist" ] || \
+             [ ! -f "dist/index.cjs.js" ] || \
+             [ ! -f "dist/index.esm.js" ] || \
+             [ ! -f "dist/types/awsSecretsManagerCache.d.ts" ]; then
+            echo "Error: Missing expected dist files"
             exit 1
-          fi      
+          fi
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

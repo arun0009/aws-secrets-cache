@@ -37,3 +37,8 @@
 
 ### Added
 - Publish dist
+
+### [1.0.8] - 2025-05-16
+
+### Added
+- Using rollup for bundling
