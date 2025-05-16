@@ -9,7 +9,8 @@ A JavaScript/TypeScript library for caching and refreshing AWS Secrets Manager s
 ## Usage
 
 ```typescript
-import AWSSecretsManagerCache, { AWSSecretsConfig } from 'aws-secrets-cache';
+import AWSSecretsManagerCache from 'aws-secrets-cache';
+import type { AWSSecretsConfig } from 'aws-secrets-cache';
 
 const config: AWSSecretsConfig = {
   secretMappings: {
@@ -37,7 +38,9 @@ secretsManager.on('error', (data) => console.error(`Error for ${data.userId}:`, 
 
 ```typescript
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
-import AWSSecretsManagerCache, { AWSSecretsConfig, Logger } from 'aws-secrets-cache';
+import AWSSecretsManagerCache from 'aws-secrets-cache';
+import type { AWSSecretsConfig, Logger } from 'aws-secrets-cache';
+
 import winston from 'winston';
 
 // Optional: Create a Winston logger instance

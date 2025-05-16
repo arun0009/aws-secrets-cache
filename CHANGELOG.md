@@ -57,3 +57,8 @@
 
 ### Added
 - adding client to config as optional
+
+### [1.1.2] - 2025-05-16
+
+### Added
+- updating readme examples to use import type
