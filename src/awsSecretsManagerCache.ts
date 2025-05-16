@@ -26,6 +26,7 @@ const configSchema = z
     retryDelay: z.number().positive().default(1000),
     disableEvents: z.boolean().optional().default(false),
     logger: z.union([z.boolean(), z.any()]).optional().default(true),
+    client: z.instanceof(SecretsManagerClient).optional(),    
   })
   .strict();
 

@@ -5,7 +5,7 @@ import json from '@rollup/plugin-json';
 import terser from '@rollup/plugin-terser';
 
 export default {
-  input: 'src/awsSecretsManagerCache.ts', // Adjust if your entry file is different
+  input: 'src/awsSecretsManagerCache.ts', 
   output: [
     {
       file: 'dist/index.cjs.js',
@@ -20,7 +20,7 @@ export default {
     },
   ],
   plugins: [
-    nodeResolve(), // Resolves node_modules dependencies
+    nodeResolve(), // Resolves node_modules
     commonjs(), // Converts CommonJS modules to ESM
     json(), // Handles JSON imports (useful for AWS SDK)
     typescript({
