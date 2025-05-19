@@ -62,3 +62,8 @@
 
 ### Added
 - updating readme examples to use import type
+
+### [1.1.3] - 2025-05-19
+
+### Added
+- updating readme example (Using pg credentials from AWS SM)

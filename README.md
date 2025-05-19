@@ -6,30 +6,80 @@ A JavaScript/TypeScript library for caching and refreshing AWS Secrets Manager s
 
 `npm install aws-secrets-cache`
 
-## Usage
+## Usage (Example)
 
 ```typescript
+import express, { Request, Response } from 'express';
+import { Pool } from 'pg';
 import AWSSecretsManagerCache from 'aws-secrets-cache';
-import type { AWSSecretsConfig } from 'aws-secrets-cache';
+import type { AWSSecretsConfig, UpdateEvent } from 'aws-secrets-cache';
 
-const config: AWSSecretsConfig = {
-  secretMappings: {
-    dbPassword: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-xyz',
-    apiKey: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:api-key-abc',
-  },
-  region: 'us-east-1',
-  refreshInterval: 60000, // 1 minute
+const app = express();
+const port = 3000;
+
+const secretsConfig: AWSSecretsConfig = {
+  secretMappings: { dbCredentials: 'arn:aws:secretsmanager:us-west-2:123456789012:secret:prod/postgres-credentials-xyz' },
+  region: 'us-west-2',
+  refreshInterval: 3600000, // 1 hour
 };
 
-const secretsManager = new AWSSecretsManagerCache(config);
+const secretsManager = new AWSSecretsManagerCache(secretsConfig);
+let pgPool: Pool | undefined;
 
-secretsManager.on('update', (data) => console.log(`Secret updated: ${data.userId} at ${new Date(data.timestamp).toISOString()}`));
-secretsManager.on('error', (data) => console.error(`Error for ${data.userId}:`, data.error));
+interface DbCredentials {
+  username: string;
+  password: string;
+  host: string;
+  dbname: string;
+  port: number;
+}
+
+async function initDbConnection() {
+  try {
+    const dbCredentials = secretsManager.getSecret('dbCredentials') as DbCredentials | undefined;
+    if (!dbCredentials) throw new Error('No DB credentials');
+
+    if (pgPool) await pgPool.end();
+
+    pgPool = new Pool({
+      user: dbCredentials.username,
+      host: dbCredentials.host,
+      database: dbCredentials.dbname,
+      password: dbCredentials.password,
+      port: dbCredentials.port,
+    });
+
+    const client = await pgPool.connect();
+    console.log('DB connected');
+    client.release();
+  } catch (error) {
+    console.error('DB init failed:', error);
+  }
+}
+
+secretsManager.on('update', async (event: UpdateEvent) => {
+  if (event.userId === 'dbCredentials') {
+    await initDbConnection();
+  }
+});
+
+secretsManager.on('error', (data: { userId: string; error: Error }) => console.error('Secrets error:', data.error));
+
+app.get('/users', async (_req: Request, res: Response) => {
+  try {
+    if (!pgPool) throw new Error('Database not initialized');
+    const result = await pgPool.query('SELECT * FROM users LIMIT 10');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Query failed:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 (async () => {
   await secretsManager.initialize();
-  console.log('DB Password:', secretsManager.getSecret('dbPassword'));
-  console.log('All secrets:', secretsManager.getAllSecrets());
+  await initDbConnection();
+  app.listen(port, () => console.log(`Server on port ${port}`));
 })();
 ```
 
@@ -37,14 +87,18 @@ secretsManager.on('error', (data) => console.error(`Error for ${data.userId}:`, 
   <summary>Advanced</summary>
 
 ```typescript
+import express, { Request, Response } from 'express';
+import { Pool } from 'pg';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import AWSSecretsManagerCache from 'aws-secrets-cache';
-import type { AWSSecretsConfig, Logger } from 'aws-secrets-cache';
-
+import type { AWSSecretsConfig, Logger, UpdateEvent } from 'aws-secrets-cache';
 import winston from 'winston';
 
+const app = express();
+const port = 3000;
+
 // Optional: Create a Winston logger instance
-const customLogger = winston.createLogger({
+const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
@@ -58,30 +112,74 @@ const customLogger = winston.createLogger({
 // Optional: custom AWS SecretsManagerClient with specific region
 const customClient = new SecretsManagerClient({ region: 'us-west-2' });
 
-const config: AWSSecretsConfig = {
-  secretMappings: {
-    dbPassword: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:db-password-xyz',
-    apiKey: 'arn:aws:secretsmanager:us-east-1:123456789012:secret:api-key-abc',
-  },
-  refreshInterval: 60000, // 1 minute
-  logger: customLogger,  // optional Winston logger (defaults to console)
-  client: customClient,  // optional AWS SecretsManagerClient instance
+const secretsConfig: AWSSecretsConfig = {
+  secretMappings: { dbCredentials: 'arn:aws:secretsmanager:us-west-2:123456789012:secret:prod/postgres-credentials-xyz' },
+  region: 'us-west-2',
+  refreshInterval: 3600000,
+  logger: logger,  
+  client: customClient,
 };
 
-const secretsManager = new AWSSecretsManagerCache(config);
+const secretsManager = new AWSSecretsManagerCache(secretsConfig);
 
-secretsManager.on('update', (data) =>
-  customLogger.info(`Secret updated: ${data.userId} at ${new Date(data.timestamp).toISOString()}`)
-);
+let pgPool: Pool | undefined;
 
-secretsManager.on('error', (data) =>
-  customLogger.error(`Error for ${data.userId}:`, data.error)
-);
+interface DbCredentials {
+  username: string;
+  password: string;
+  host: string;
+  dbname: string;
+  port: number;
+}
+
+async function initDbConnection() {
+  try {
+    const dbCredentials = secretsManager.getSecret('dbCredentials') as DbCredentials | undefined;
+    if (!dbCredentials) throw new Error('No DB credentials');
+
+    if (pgPool) await pgPool.end();
+
+    pgPool = new Pool({
+      user: dbCredentials.username,
+      host: dbCredentials.host,
+      database: dbCredentials.dbname,
+      password: dbCredentials.password,
+      port: dbCredentials.port,
+    });
+
+    const client = await pgPool.connect();
+    logger.info('DB connected');
+    client.release();
+  } catch (error) {
+    logger.error('DB init failed:', error);
+  }
+}
+
+secretsManager.on('update', async (event: UpdateEvent) => {
+  if (event.userId === 'dbCredentials') {
+    await initDbConnection();
+  }
+});
+
+secretsManager.on('error', (data: { userId: string; error: Error }) => {
+  logger.error(`Secrets error for ${data.userId}: ${data.error.message}`);
+});
+
+app.get('/users', async (_req: Request, res: Response) => {
+  try {
+    if (!pgPool) throw new Error('Database not initialized');
+    const result = await pgPool.query('SELECT * FROM users LIMIT 10');
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Query failed:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 (async () => {
   await secretsManager.initialize();
-  customLogger.info('DB Password:', secretsManager.getSecret('dbPassword'));
-  customLogger.info('All secrets:', secretsManager.getAllSecrets());
+  await initDbConnection();
+  app.listen(port, () => logger.info(`Server on port ${port}`));
 })();
 ```
 </details>
